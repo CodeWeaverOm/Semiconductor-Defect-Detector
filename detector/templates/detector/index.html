@@ -1,0 +1,125 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Semiconductor Defect Detector</title>
+  <link rel="stylesheet" href="{% static 'detector/css/style.css' %}">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="#top"><span class="dot"></span> DefectScope</a>
+  <nav>
+    <a href="#built">What we built</a>
+    <a href="#model">The model</a>
+    <a href="#types">Defect types</a>
+    <a href="#upload" class="cta">Try it</a>
+  </nav>
+</header>
+
+<main id="top">
+  <!-- 1. What we have built -->
+  <section class="hero" id="built">
+    <p class="eyebrow">Semiconductor inspection &middot; Machine learning</p>
+    <h1>Spot wafer defects from a single image.</h1>
+    <p class="lead">A Django web app that runs a trained deep-learning classifier on microscope images of
+      semiconductor patterns and tells you which kind of defect it sees, with a confidence score.</p>
+    <div class="stats">
+      <div><b>{{ num_classes }}</b><span>classes</span></div>
+      <div><b>{{ num_samples }}</b><span>sample images</span></div>
+      <div><b>224&times;224</b><span>model input</span></div>
+      <div><b>ONNX</b><span>runtime format</span></div>
+    </div>
+    <ol class="flow">
+      <li><i>1</i><b>Browse</b><span>See the defect types the model knows</span></li>
+      <li><i>2</i><b>Drag</b><span>Drag a sample into the upload tab</span></li>
+      <li><i>3</i><b>Detect</b><span>The model returns the class and scores</span></li>
+    </ol>
+    <a class="btn" href="#model">Learn about the model</a>
+  </section>
+
+  <!-- 2. About the model -->
+  <section id="model">
+    <h2>About the model</h2>
+    <div class="grid2">
+      <div>
+        <p>The detector is an image classifier built on a <b>ResNet</b> convolutional network
+          (exported from PyTorch to <b>ONNX</b>). It looks at the texture and shape of the pattern in the image
+          and assigns it to one of {{ num_classes }} classes.</p>
+        <ul class="ticks">
+          <li>Input images are converted to 3 channels, resized to 224&times;224 and normalised.</li>
+          <li>The network outputs one score per class; a softmax turns them into probabilities.</li>
+          <li>The model is loaded once when the server starts and reused for every request.</li>
+          <li>Uploaded images are analysed in memory and are not stored.</li>
+        </ul>
+      </div>
+      <div class="card pipeline">
+        <h3>Pipeline</h3>
+        <div class="steps">
+          <span>Image</span><em>&rarr;</em><span>Resize 224&sup2;</span><em>&rarr;</em><span>ResNet</span><em>&rarr;</em><span>Softmax</span><em>&rarr;</em><span>Defect class</span>
+        </div>
+        <h3>Classes</h3>
+        <div class="chips">{% for c in classes %}<span>{{ c.title }}</span>{% endfor %}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Types of images -->
+  <section id="types">
+    <h2>Defect types</h2>
+    <p class="muted">Sample images for each class. <b>Drag any image</b> down to the upload tab (or tap one to select it).</p>
+    <div class="classes">
+      {% for c in classes %}
+      <article class="card">
+        <header><h3>{{ c.title }}</h3><span class="count">{{ c.images|length }} sample{{ c.images|length|pluralize }}</span></header>
+        <p>{{ c.blurb }}</p>
+        {% if c.images %}
+        <div class="thumbs">
+          {% for img in c.images %}
+          <img src="{{ img.url }}" alt="{{ c.title }} example {{ forloop.counter }}" title="{{ img.file }}"
+               data-file="{{ img.file }}" draggable="true" class="sample" loading="lazy">
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="noimg">No sample images for this class</div>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- 4. Upload -->
+  <section id="upload">
+    <h2>Upload &amp; detect</h2>
+    {% if not model.ready %}
+    <div class="notice"><b>Demo mode.</b> The model weights file <code>models/defect_model.onnx.data</code> was not found,
+      so only the sample images from the gallery can be classified (by file name). Add the file and restart the server for real predictions.</div>
+    {% endif %}
+    <div class="grid2 upload">
+      <div>
+        <div id="drop" class="drop" tabindex="0" role="button" aria-label="Drop an image here or click to browse">
+          <div class="drop-idle">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0L7 9m5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+            <p><b>Drag a sample image here</b></p>
+            <p class="muted">or click to browse your files</p>
+          </div>
+          <img id="preview" alt="Selected image" hidden>
+        </div>
+        <input type="file" id="file" accept="image/*" hidden>
+        <div class="actions">
+          <button class="btn" id="run" disabled>Detect defect</button>
+          <button class="btn ghost" id="clear" hidden>Clear</button>
+        </div>
+      </div>
+      <div class="card result" id="result" aria-live="polite">
+        <div class="placeholder">The result will appear here.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>Semiconductor Defect Detector &middot; Django + ONNX Runtime</footer>
+<script>window.PREDICT_URL = "{% url 'detector:predict' %}";</script>
+<script src="{% static 'detector/js/app.js' %}"></script>
+</body>
+</html>
